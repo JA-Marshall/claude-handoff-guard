@@ -32,4 +32,6 @@ Use an absolute path on Windows; `%USERPROFILE%` is not expanded. The script loo
 
 ## Manual "button"
 
+Next to each handoff, `<session>.prompt.txt` holds the exact text sent to Haiku (user/assistant text only, each message cut to 1500 chars, last 120k chars kept; tool calls and results are not included).
+
 `python3 stale_context_guard.py [transcript.jsonl]` writes a handoff for any session on demand (default: most recently modified).

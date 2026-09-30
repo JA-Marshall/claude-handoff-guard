@@ -59,6 +59,7 @@ def handoff(path, text):
               "fresh session: goal, what is done, what is in progress, key decisions and why, "
               "exact file paths/branches/commands that matter, open questions, and the single "
               "next step. Be concise; no preamble.\n\n" + text[-120_000:])
+    open(out[:-3] + ".prompt.txt", "w", encoding="utf8").write(prompt)  # exactly what Haiku receives
     env = dict(os.environ, CLAUDE_HANDOFF_CHILD="1")
     r = subprocess.run([claude_exe(), "-p", "--model", MODEL, "--no-session-persistence"],
                        input=prompt, capture_output=True, text=True, encoding="utf8",
