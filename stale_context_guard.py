@@ -11,11 +11,20 @@ from datetime import datetime, timezone
 MIN_TOKENS = 50_000   # below this, waking the session is cheap anyway
 COLD_AFTER = 55 * 60  # prompt cache TTL is 1h; treat >55min idle as cold
 MODEL = "haiku"
+# $ per 1M tokens: (input, cache read). Cache write is 1.25x input (5m TTL) or 2x (1h TTL).
+PRICES = {"fable": (10.0, 0.25), "opus": (4.0, 0.20), "sonnet": (2.0, 0.20), "haiku": (1.0, 0.10)}
+
+def wake_cost(model, tokens):
+    """(first-turn cost range low, high, each later cached turn) in USD, or None if model unknown."""
+    for k, (inp, read) in PRICES.items():
+        if k in (model or ""):
+            return tokens * inp * 1.25 / 1e6, tokens * inp * 2 / 1e6, tokens * read / 1e6
+    return None
 OUT = os.path.expanduser("~/.claude/handoffs")
 
 def scan(path):
-    """Return (context_tokens, last_assistant_epoch, condensed_text)."""
-    tokens, last, lines = 0, 0.0, []
+    """Return (context_tokens, last_assistant_epoch, condensed_text, model)."""
+    tokens, last, lines, model = 0, 0.0, [], None
     for raw in open(path, encoding="utf8", errors="replace"):
         try:
             d = json.loads(raw)
@@ -31,12 +40,13 @@ def scan(path):
             lines.append(f"[{d['type']}] {text.strip()[:1500]}")
         u = m.get("usage")
         if d["type"] == "assistant" and u:
+            model = m.get("model") or model
             tokens = sum(u.get(k, 0) or 0 for k in
                          ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"))
             ts = d.get("timestamp")
             if ts:
                 last = datetime.fromisoformat(ts.replace("Z", "+00:00")).timestamp()
-    return tokens, last, "\n".join(lines)
+    return tokens, last, "\n".join(lines), model
 
 def claude_exe():
     hits = [os.path.expanduser("~/.local/bin/claude")] if os.path.exists(os.path.expanduser("~/.local/bin/claude")) else []
@@ -72,7 +82,7 @@ def main():
     path = ev.get("transcript_path")
     if not path or not os.path.exists(path):
         return 0
-    tokens, last, text = scan(path)
+    tokens, last, text, model = scan(path)
     idle = time.time() - last
     if tokens < MIN_TOKENS or not last or idle < COLD_AFTER:
         return 0
@@ -80,8 +90,11 @@ def main():
         note = f"Handoff written: {handoff(path, text)}"
     except Exception as e:  # never trap the user without an exit
         note = f"(handoff generation failed: {e})"
+    c = wake_cost(model, tokens)
+    cost = (f"Waking it would have cost ~${c[0]:.2f}-${c[1]:.2f} for this one message "
+            f"(cache rewrite on {model}), then ~${c[2]:.2f} per message after.\n") if c else ""
     print(f"Blocked: this session holds ~{tokens // 1000}k tokens and its cache has been cold "
-          f"for {int(idle // 60)} min, so resuming re-bills all of it.\n{note}\n"
+          f"for {int(idle // 60)} min, so resuming re-bills all of it.\n{cost}{note}\n"
           "Start a new session and paste: Read <that file> and continue.\n"
           "To wake this one anyway, start your prompt with '!wake '.", file=sys.stderr)
     return 2

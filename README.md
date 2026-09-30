@@ -6,7 +6,8 @@ When a prompt is sent to a session holding 50k+ tokens that has been idle for 55
 
 1. blocks the prompt (exit code 2);
 2. reads the transcript file and asks Haiku, in a separate `claude -p` call, to write a handoff note, so the old context is never re-sent;
-3. saves the note to `~/.claude/handoffs/<session>.md` and tells you to start a new session with `Read <file> and continue.`
+3. shows what waking the session would have cost (cache rewrite at 1.25x-2x input price, then the cache-read price per message; edit `PRICES` if rates change);
+4. saves the note to `~/.claude/handoffs/<session>.md` and tells you to start a new session with `Read <file> and continue.`
 
 Start a prompt with `!wake ` to override. Thresholds are constants at the top of the script.
 
