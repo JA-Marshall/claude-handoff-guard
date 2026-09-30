@@ -74,4 +74,4 @@ If summarising fails, the prompt is still blocked and the error is shown, and `!
 
 ## Manual "button"
 
-`python3 stale_context_guard.py [transcript.jsonl]` writes a handoff for any session on demand (default: most recently modified).
+`python3 stale_context_guard.py --latest` (or pass a transcript path) writes a handoff for any session on demand (default: most recently modified).

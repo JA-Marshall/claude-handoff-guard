@@ -1,7 +1,7 @@
 """Block prompts into large, cold-cache sessions and write a handoff note instead.
 
 Hook mode (UserPromptSubmit, JSON on stdin): exit 2 blocks the prompt and shows
-the message. Manual mode: `python3 stale_context_guard.py [transcript.jsonl]`
+the message. Manual mode: `python3 stale_context_guard.py [--latest | transcript.jsonl]`
 writes a handoff for that transcript (default: most recently modified).
 Override in hook mode by starting a prompt with "!wake ".
 
@@ -194,7 +194,7 @@ def main():
     if os.environ.get("CLAUDE_HANDOFF_CHILD") or not CFG["enabled"]:
         return 0
     if len(sys.argv) > 1 or sys.stdin.isatty():
-        path = sys.argv[1] if len(sys.argv) > 1 else max(
+        path = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1] != "--latest" else max(
             glob.glob(os.path.expanduser("~/.claude/projects/*/*.jsonl")), key=os.path.getmtime)
         print(handoff(path, scan(path)[2]))
         return 0
