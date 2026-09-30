@@ -123,7 +123,7 @@ def scan(path):
                 lines.append(_result_text(b))
         u = m.get("usage")
         if who == "assistant" and u:
-            model = m.get("model") or model
+            model = m["model"] if m.get("model") not in (None, "<synthetic>") else model
             cc = u.get("cache_creation") or {}
             if cc.get("ephemeral_1h_input_tokens"):
                 ttl = 60
