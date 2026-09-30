@@ -28,6 +28,7 @@ DEFAULTS = {
         "claude_path": "",         # blank = ~/.local/bin/claude, else `claude` on PATH
         "base_url": "",            # openai provider only, e.g. https://api.example.com/v1
         "api_key_env": "",         # NAME of the env var holding the key (never the key itself)
+        "api_key_file": "",        # or a file containing only the key, e.g. ~/.claude/handoff-guard.key
     },
     # $ per 1M tokens: [input, cache read]. Cache write is 1.25x input (5m) or 2x (1h).
     "prices": {"fable": [10.0, 0.25], "opus": [4.0, 0.20], "sonnet": [2.0, 0.20], "haiku": [1.0, 0.10]},
@@ -154,8 +155,14 @@ def summarise(prompt):
     s, timeout = CFG["summariser"], CFG["timeout_seconds"]
     if s["provider"] == "openai":
         key = os.environ.get(s["api_key_env"], "") if s["api_key_env"] else ""
+        if not key and s["api_key_file"]:
+            try:
+                key = open(os.path.expanduser(s["api_key_file"]), encoding="utf8").read().strip()
+            except OSError:
+                pass
         if not s["base_url"] or not key:
-            raise RuntimeError("openai provider needs summariser.base_url and a set summariser.api_key_env")
+            raise RuntimeError("openai provider needs summariser.base_url and a key "
+                               "(env var named by api_key_env, or the file named by api_key_file)")
         body = json.dumps({"model": s["model"], "messages": [
             {"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}]}).encode()
         req = urllib.request.Request(s["base_url"].rstrip("/") + "/chat/completions", body,

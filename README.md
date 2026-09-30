@@ -50,6 +50,7 @@ Everything is optional. Copy `config.example.json` to `~/.claude/handoff-guard.j
 | `summariser.claude_path` | | Path to the `claude` binary if not `~/.local/bin/claude` |
 | `summariser.base_url` | | OpenAI-compatible base URL, e.g. `https://host/v1` |
 | `summariser.api_key_env` | | **Name** of the environment variable holding the key |
+| `summariser.api_key_file` | | Or a file containing only the key (`chmod 600`); read on every run, so no restart needed |
 | `prices` | see script | `{"model-substring": [input, cache_read]}` in $ per 1M tokens |
 
 Environment overrides: `HANDOFF_GUARD_CONFIG`, `HANDOFF_GUARD_MODEL`, `HANDOFF_GUARD_MIN_TOKENS`, `HANDOFF_GUARD_COLD_MINUTES`, `HANDOFF_GUARD_DISABLE`.
