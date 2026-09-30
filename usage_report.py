@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """How much of your Claude Code spend went on re-writing a cache that had expired?
 
-Usage: python3 usage_report.py [projects_dir ...]     (default: ~/.claude/projects)
+Usage: python3 usage_report.py [--days N] [projects_dir ...]     (default: ~/.claude/projects)
 
 Estimates API-list-price cost per assistant turn from the transcript's token usage, then
 flags turns that came after the prompt cache had gone cold. For those turns the "avoidable"
 part is the cache write minus what the same tokens would have cost as a warm cache read.
 """
-import glob, json, os, sys
+import glob, json, os, sys, time
 from collections import defaultdict
 from datetime import datetime
 
@@ -41,7 +41,13 @@ def turns(path):
     return [seen[k] for k in order]
 
 def main():
-    dirs = sys.argv[1:] or [os.path.expanduser("~/.claude/projects")]
+    args = sys.argv[1:]
+    since = 0.0
+    if "--days" in args:
+        i = args.index("--days")
+        since = time.time() - float(args[i + 1]) * 86400
+        del args[i:i + 2]
+    dirs = args or [os.path.expanduser("~/.claude/projects")]
     total = cold_total = avoidable = 0.0
     cold_turns = n_turns = n_sessions = 0
     by_model = defaultdict(lambda: [0.0, 0.0])
@@ -51,7 +57,7 @@ def main():
             if os.path.basename(f) in done:  # same session listed under two directories
                 continue
             done.add(os.path.basename(f))
-            t = turns(f)
+            t = [x for x in turns(f) if x[0] >= since]
             if not t:
                 continue
             n_sessions += 1
