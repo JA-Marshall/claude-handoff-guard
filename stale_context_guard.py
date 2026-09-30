@@ -30,8 +30,14 @@ DEFAULTS = {
         "api_key_env": "",         # NAME of the env var holding the key (never the key itself)
         "api_key_file": "",        # or a file containing only the key, e.g. ~/.claude/handoff-guard.key
     },
-    # $ per 1M tokens: [input, cache read]. Cache write is 1.25x input (5m) or 2x (1h).
-    "prices": {"fable": [10.0, 0.25], "opus": [4.0, 0.20], "sonnet": [2.0, 0.20], "haiku": [1.0, 0.10]},
+    # $ per 1M tokens: [input, cache read]. Matched by model-ID substring, longest first, so
+    # "claude-opus-5-5" beats "claude-opus-5". Cache write is 2x input (1h) or 1.25x (5m).
+    "prices": {
+        "claude-fable-5-1": [10.0, 0.25], "claude-mythos-5-1": [10.0, 0.25], "claude-fable-5": [10.0, 1.0],
+        "claude-opus-5-5": [4.0, 0.20], "claude-opus-5": [5.0, 0.50], "claude-opus-4": [5.0, 0.50],
+        "claude-sonnet-5": [2.0, 0.20], "claude-sonnet-4": [3.0, 0.30],
+        "claude-haiku-4-5": [1.0, 0.10],
+    },
 }
 
 def load_config():
@@ -64,7 +70,7 @@ CFG = load_config()
 def wake_cost(model, tokens, ttl_min):
     """(first-turn cache write, each later cached turn) in USD, or None if model unknown.
     Cache writes cost 2x input for the 1-hour cache, 1.25x for the 5-minute cache."""
-    for k, (inp, read) in CFG["prices"].items():
+    for k, (inp, read) in sorted(CFG["prices"].items(), key=lambda kv: -len(kv[0])):
         if k in (model or ""):
             return tokens * inp * (2 if ttl_min >= 60 else 1.25) / 1e6, tokens * read / 1e6
     return None

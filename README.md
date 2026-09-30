@@ -57,7 +57,7 @@ Edit `~/.claude/handoff-guard.json`. Every key is optional; unset keys keep thei
 | `summariser.base_url` | | OpenAI-compatible base URL, e.g. `https://host/v1` |
 | `summariser.api_key_env` | | **Name** of the environment variable holding the key |
 | `summariser.api_key_file` | | Or a file holding only the key (`chmod 600`); read on every run, no restart needed |
-| `prices` | see script | `{"model-substring": [input, cache_read]}` in $ per 1M tokens |
+| `prices` | see script | `{"model-id-substring": [input, cache_read]}` in $ per 1M tokens; the longest matching ID wins, so `claude-opus-5-5` and `claude-opus-5` can differ |
 
 Environment overrides: `HANDOFF_GUARD_CONFIG`, `HANDOFF_GUARD_MODEL`, `HANDOFF_GUARD_MIN_TOKENS`, `HANDOFF_GUARD_COLD_MINUTES`, `HANDOFF_GUARD_DISABLE`.
 
