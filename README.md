@@ -1,12 +1,8 @@
-<div align="center">
+# claude-handoff-guard
 
-# 🧊 claude-handoff-guard
+A Claude Code hook that stops you resuming a large session after its prompt cache has expired, and writes a handoff note for a fresh session instead.
 
-**Stop paying to wake a cold Claude Code session. Get a handoff note instead.**
-
-</div>
-
-Resume a big session after a coffee break and the prompt cache has expired, so Claude Code re-bills the *entire* context at full price. This hook catches that moment, tells you what it would have cost, and writes a structured handoff note with a cheap model that reads the transcript file directly, so the expensive context is never touched.
+Once the cache is cold, the next message re-bills the entire context at the cache-write price. This hook blocks that message, shows what it would have cost, and has a separate model write the handoff by reading the transcript file, so the expensive context is never re-sent.
 
 ```text
 Blocked: ~385k tokens, cache cold for 6425 min. Would have cost ~$3.08 for this message (cache rewrite), then ~$0.08 per message after.
@@ -18,7 +14,7 @@ Read /home/you/.claude/handoffs/b12944fc-….md and continue from it.
 To wake this session anyway, start your prompt with '!wake '.
 ```
 
-## Features
+## What it does
 
 - **Cold-cache guard** blocks prompts into sessions over `min_tokens` (default 50k) idle past the cache lifetime.
 - **Cost estimate** for the message you almost sent, from the session's own model and token count.
@@ -26,7 +22,7 @@ To wake this session anyway, start your prompt with '!wake '.
 - **Any summariser**: your Claude login (`claude -p`) or any OpenAI-compatible API such as Meta's Muse Spark.
 - **Fully auditable**: the exact prompt sent is saved next to each note as `<session>.prompt.txt`.
 - **Never traps you**: if summarising fails you still get the block and the error, and `!wake ` always gets through.
-- **Zero dependencies**: one Python file, standard library only.
+- **No dependencies**: standard-library Python only.
 
 ## Install
 
@@ -77,6 +73,17 @@ Environment overrides: `HANDOFF_GUARD_CONFIG`, `HANDOFF_GUARD_MODEL`, `HANDOFF_G
 
 Never put a key in the config or commit it. Use the env var or the key file.
 
+## Usage report
+
+`usage_report.py` scans your transcripts and estimates how much of your spend went on re-writing an expired cache:
+
+```bash
+python3 usage_report.py                      # ~/.claude/projects
+python3 usage_report.py dir1 dir2            # several projects directories
+```
+
+It prints total estimated spend, the number of cold-cache restarts, the share of spend they account for (the avoidable part is the cache write minus what a warm read would have cost), a per-model breakdown and the costliest restarts. Figures are API list prices from token usage, not your plan's billing, and subagent transcripts are not included.
+
 ## On-demand handoff
 
 Write a note for any session without waiting for a block:
@@ -92,5 +99,5 @@ A cold cache means the whole context is re-written at 2x (1-hour cache) or 1.25x
 
 ## Notes
 
-- Timing depends on the summariser and the size of the session; a 385k-token session took about 2 minutes with Muse Spark 1.3.
+- Summarising takes from seconds to a couple of minutes depending on the model and session size (about 2 minutes for a 385k-token session with Muse Spark 1.3).
 - Handoffs are only as good as what the transcript contains. If a note looks thin, read the saved `.prompt.txt` to see what the model was given.
