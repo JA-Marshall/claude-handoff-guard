@@ -35,6 +35,7 @@ DEFAULTS = {
     "prices": {
         "claude-fable-5-1": [10.0, 0.25], "claude-mythos-5-1": [10.0, 0.25], "claude-fable-5": [10.0, 1.0],
         "claude-opus-5-5": [4.0, 0.20], "claude-opus-5": [5.0, 0.50], "claude-opus-4": [5.0, 0.50],
+        "claude-opus-4-1": [15.0, 1.50], "claude-opus-4-2": [15.0, 1.50], "claude-3-5-haiku": [0.8, 0.08],
         "claude-sonnet-5": [2.0, 0.20], "claude-sonnet-4": [3.0, 0.30],
         "claude-haiku-4-5": [1.0, 0.10],
     },
