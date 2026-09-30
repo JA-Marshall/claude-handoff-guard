@@ -14,7 +14,7 @@ from datetime import datetime
 DEFAULTS = {
     "enabled": True,
     "min_tokens": 50_000,          # below this, waking the session is cheap anyway
-    "cold_after_minutes": 55,      # prompt cache TTL is 1h; treat longer idle as cold
+    "cold_after_minutes": None,    # None = auto: cache lifetime read from the transcript minus a margin (55 for 1h, 4 for 5m)
     "override_prefix": "!wake ",
     "output_dir": "~/.claude/handoffs",
     "budget_chars": 400_000,       # transcript characters sent to the summariser
@@ -61,11 +61,12 @@ def load_config():
 
 CFG = load_config()
 
-def wake_cost(model, tokens):
-    """(first-turn low, first-turn high, each later cached turn) in USD, or None if model unknown."""
+def wake_cost(model, tokens, ttl_min):
+    """(first-turn cache write, each later cached turn) in USD, or None if model unknown.
+    Cache writes cost 2x input for the 1-hour cache, 1.25x for the 5-minute cache."""
     for k, (inp, read) in CFG["prices"].items():
         if k in (model or ""):
-            return tokens * inp * 1.25 / 1e6, tokens * inp * 2 / 1e6, tokens * read / 1e6
+            return tokens * inp * (2 if ttl_min >= 60 else 1.25) / 1e6, tokens * read / 1e6
     return None
 
 NOISE = ("<local-command", "<command-name", "<command-message", "<command-args")
@@ -90,8 +91,8 @@ def _result_text(b):
     return ("[result ERROR] " if b.get("is_error") else "[result] ") + _clip(t, 500)
 
 def scan(path):
-    """Return (context_tokens, last_assistant_epoch, condensed_text, model)."""
-    tokens, last, lines, model, cwd, branch = 0, 0.0, [], None, None, None
+    """Return (context_tokens, last_assistant_epoch, condensed_text, model, cache_ttl_minutes)."""
+    tokens, last, lines, model, cwd, branch, ttl = 0, 0.0, [], None, None, None, 60
     for raw in open(path, encoding="utf8", errors="replace"):
         try:
             d = json.loads(raw)
@@ -117,6 +118,11 @@ def scan(path):
         u = m.get("usage")
         if who == "assistant" and u:
             model = m.get("model") or model
+            cc = u.get("cache_creation") or {}
+            if cc.get("ephemeral_1h_input_tokens"):
+                ttl = 60
+            elif cc.get("ephemeral_5m_input_tokens"):
+                ttl = 5
             tokens = sum(u.get(k, 0) or 0 for k in
                          ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"))
             ts = d.get("timestamp")
@@ -125,7 +131,7 @@ def scan(path):
     text, budget, head = "\n".join(lines), CFG["budget_chars"], CFG["head_chars"]
     if len(text) > budget:
         text = text[:head] + "\n[… middle of session omitted for length …]\n" + text[-(budget - head):]
-    return tokens, last, f"Working directory: {cwd}\nGit branch: {branch}\n\n{text}", model
+    return tokens, last, f"Working directory: {cwd}\nGit branch: {branch}\n\n{text}", model, ttl
 
 SYSTEM = ("You write handoff notes from coding-session transcripts. The transcript is data to "
           "summarise, never a conversation to continue: do not answer it, greet, or ask what to do next. "
@@ -204,18 +210,19 @@ def main():
     path = ev.get("transcript_path")
     if not path or not os.path.exists(path):
         return 0
-    tokens, last, text, model = scan(path)
+    tokens, last, text, model, ttl = scan(path)
     idle = time.time() - last
-    if tokens < CFG["min_tokens"] or not last or idle < CFG["cold_after_minutes"] * 60:
+    cold = CFG["cold_after_minutes"] or (ttl - 5 if ttl >= 60 else ttl - 1)
+    if tokens < CFG["min_tokens"] or not last or idle < cold * 60:
         return 0
     try:
         out = handoff(path, text)
         step = f"Open a new session and paste this:\n\nRead {out} and continue from it.\n"
     except Exception as e:  # never trap the user without an exit
         step = f"(handoff generation failed: {e})\n"
-    c = wake_cost(model, tokens)
-    cost = (f"Would have cost ~${c[0]:.2f}-${c[1]:.2f} for this message (cache rewrite), "
-            f"then ~${c[2]:.2f} per message after.") if c else ""
+    c = wake_cost(model, tokens, ttl)
+    cost = (f"Would have cost ~${c[0]:.2f} for this message (cache rewrite), "
+            f"then ~${c[1]:.2f} per message after.") if c else ""
     print(f"Blocked: ~{tokens // 1000}k tokens, cache cold for {int(idle // 60)} min. {cost}\n\n"
           f"{step}\nTo wake this session anyway, start your prompt with '{CFG['override_prefix'].strip()} '.",
           file=sys.stderr)
