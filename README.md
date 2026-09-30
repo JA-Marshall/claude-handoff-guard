@@ -1,6 +1,6 @@
 # claude-handoff-guard
 
-A Claude Code hook that blocks messages into sessions whose prompt cache has expired, and writes a handoff note so you can carry on in a fresh session instead.
+Two Claude Code hooks that keep sessions from getting expensive: one blocks messages into a session whose prompt cache has expired, the other rolls a session over to a fresh one once its context passes a token limit. Both write a handoff note so the work carries on.
 
 ![A blocked prompt in Claude Code, showing the cost and a ready-to-paste handoff line](docs/blocked.png)
 
@@ -28,7 +28,7 @@ cd claude-handoff-guard
 python3 install.py
 ```
 
-`install.py` copies the hook to `~/.claude/hooks/`, registers it in `~/.claude/settings.json` (backing the file up first) and writes a default config. It applies from your next prompt, with no restart. Run it in the same environment as Claude Code, so inside WSL if that is where you run it.
+`install.py` copies both hooks to `~/.claude/hooks/`, registers them in `~/.claude/settings.json` (backing the file up first) and writes a default config. It applies from your next prompt, with no restart. Run it in the same environment as Claude Code, so inside WSL if that is where you run it.
 
 ## How it works
 
@@ -77,6 +77,35 @@ Example using Meta's Muse Spark as the summariser:
 ```
 
 Keep keys out of the config file and out of git.
+
+## Roll over at a context limit
+
+`context_rollover.py` is a second hook, on `Stop`, for the other way a session gets expensive: it just keeps growing. When the context passes `rollover.max_tokens` (200k by default) it makes Claude write a handoff note before it stops, then starts a new session from that note and tells you its id. The old session is left for you to close.
+
+1. At the end of a turn the hook reads the token count from the transcript, the same way the guard does.
+2. Over the limit, it keeps Claude going with one instruction: write the handoff note, using the same sections the guard's summariser uses. Claude drafts it in the session scratchpad, so there is no permission prompt, and the hook moves it to `~/.claude/handoffs/<session>.md`.
+3. At the next stop the hook runs `claude --bg` in the same directory with the note as the first message, named `handoff <id>`, and shows the new session id with the `claude attach` line to open it. If Claude did not write the note, the guard's summariser writes one from the transcript instead.
+
+`claude --bg` needs the directory to be trusted by the CLI. If it is not, the hook shows the note path and a line to paste into a session you open yourself. Run `claude` once in that directory from a terminal and accept the trust prompt to enable the automatic launch.
+
+Keys under `rollover` in `~/.claude/handoff-guard.json`, all optional:
+
+| Key | Default | Meaning |
+|---|---|---|
+| `enabled` | `true` | Turn the rollover off without uninstalling |
+| `max_tokens` | `200000` | Context size that triggers the rollover |
+| `mode` | `"self"` | `"self"`: Claude writes the note from its own context. `"summariser"`: the guard's summariser writes it from the transcript, with no extra turn on the large session |
+| `launch` | `"bg"` | `"bg"` starts the new session with `claude --bg`; `"none"` just prints the paste line |
+| `model` | | Model for the new session; blank uses your default |
+| `permission_mode` | | Permission mode for the new session; blank copies the stopping session's |
+| `claude_path` | | Path to `claude` if not `~/.local/bin/claude` |
+
+Environment overrides: `HANDOFF_ROLLOVER_MAX_TOKENS`, `HANDOFF_ROLLOVER_MODE`, `HANDOFF_ROLLOVER_LAUNCH`, `HANDOFF_ROLLOVER_MODEL`, `HANDOFF_ROLLOVER_DISABLE`. They are not passed on to the new session, so a low test limit cannot chain. `HANDOFF_ROLLOVER_LOG=path` appends every Stop event the hook sees, for debugging.
+
+```bash
+python3 ~/.claude/hooks/context_rollover.py --check            # tokens in the latest session
+python3 ~/.claude/hooks/context_rollover.py --check session.jsonl
+```
 
 ## Usage report
 

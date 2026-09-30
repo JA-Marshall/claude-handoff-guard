@@ -200,7 +200,8 @@ def handoff(path, text):
     out = os.path.join(out_dir, os.path.basename(path).replace(".jsonl", ".md"))
     prompt = f"<transcript>\n{text}\n</transcript>\n\n{TASK}"
     open(out[:-3] + ".prompt.txt", "w", encoding="utf8").write(f"[system] {SYSTEM}\n\n{prompt}")
-    open(out, "w", encoding="utf8").write(summarise(prompt))
+    text = summarise(prompt)  # summarise first so a failure never leaves an empty note behind
+    open(out, "w", encoding="utf8").write(text)
     return out
 
 def main():
@@ -235,4 +236,5 @@ def main():
           file=sys.stderr)
     return 2
 
-sys.exit(main())
+if __name__ == "__main__":
+    sys.exit(main())
