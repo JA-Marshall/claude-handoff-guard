@@ -2,15 +2,7 @@
 
 A Claude Code hook that blocks messages into sessions whose prompt cache has expired, and writes a handoff note so you can carry on in a fresh session instead.
 
-```text
-Blocked: ~385k tokens, cache cold for 96 min. Would have cost ~$3.08 for this message (cache rewrite), then ~$0.08 per message after.
-
-Open a new session and paste this:
-
-Read /home/you/.claude/handoffs/b12944fc-….md and continue from it.
-
-To wake this session anyway, start your prompt with '!wake '.
-```
+![A blocked prompt in Claude Code, showing the cost and a ready-to-paste handoff line](docs/blocked.png)
 
 ## Why
 
