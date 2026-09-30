@@ -87,16 +87,15 @@ def main():
     if tokens < MIN_TOKENS or not last or idle < COLD_AFTER:
         return 0
     try:
-        note = f"Handoff written: {handoff(path, text)}"
+        out = handoff(path, text)
+        step = f"Open a new session and paste this:\n\nRead {out} and continue from it.\n"
     except Exception as e:  # never trap the user without an exit
-        note = f"(handoff generation failed: {e})"
+        step = f"(handoff generation failed: {e})\n"
     c = wake_cost(model, tokens)
-    cost = (f"Waking it would have cost ~${c[0]:.2f}-${c[1]:.2f} for this one message "
-            f"(cache rewrite on {model}), then ~${c[2]:.2f} per message after.\n") if c else ""
-    print(f"Blocked: this session holds ~{tokens // 1000}k tokens and its cache has been cold "
-          f"for {int(idle // 60)} min, so resuming re-bills all of it.\n{cost}{note}\n"
-          "Start a new session and paste: Read <that file> and continue.\n"
-          "To wake this one anyway, start your prompt with '!wake '.", file=sys.stderr)
+    cost = (f"Would have cost ~${c[0]:.2f}-${c[1]:.2f} for this message (cache rewrite), "
+            f"then ~${c[2]:.2f} per message after.") if c else ""
+    print(f"Blocked: ~{tokens // 1000}k tokens, cache cold for {int(idle // 60)} min. {cost}\n\n"
+          f"{step}\nTo wake this session anyway, start your prompt with '!wake '.", file=sys.stderr)
     return 2
 
 sys.exit(main())
