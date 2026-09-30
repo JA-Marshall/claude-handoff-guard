@@ -1,0 +1,8 @@
+{
+  "min_tokens": 50000,
+  "cold_after_minutes": 55,
+  "summariser": {
+    "provider": "claude",
+    "model": "sonnet"
+  }
+}
